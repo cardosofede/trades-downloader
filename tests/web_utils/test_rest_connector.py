@@ -1,35 +1,43 @@
 import asyncio
 import json
-import unittest
-from typing import Awaitable
 from urllib.parse import urljoin
 
 import aiohttp
+import pytest
+from aioresponses import aioresponses
 
 from trades_downloader.web_utils.data_types import RESTMethod
 from trades_downloader.web_utils.rest_connector import RESTConnector
 
 
-class RestConnectorTests(unittest.TestCase):
-    level = 0
+@pytest.fixture(scope="class")
+def ev_loop():
+    return asyncio.get_event_loop()
 
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.ev_loop = asyncio.get_event_loop()
-        cls._session = aiohttp.ClientSession()
 
-    def setUp(self) -> None:
-        self.log_records = []
-        self._public_url = "https://api.binance.com"
-        self._public_connector = RESTConnector(base_public_url=self._public_url, session=self._session,
-                                               timeout=1.0)
-        self._public_connector.logger().setLevel(1)
-        self._public_connector.logger().addHandler(self)
+@pytest.fixture
+def mock_api():
+    with aioresponses() as m:
+        yield m
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 5):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
+@pytest.fixture(scope="class")
+def session():
+    session = aiohttp.ClientSession()
+    yield session
+    session.close()
+
+
+@pytest.fixture(scope="class")
+def public_rest_connector(session):
+    return RESTConnector(
+        base_public_url="https://api.binance.com",
+        session=session,
+        timeout=1.0
+    )
+
+
+class TestRestConnector:
     @property
     def public_url_response(self):
         return {
@@ -56,15 +64,16 @@ class RestConnectorTests(unittest.TestCase):
             "count": 76  # Trade count
         }
 
-    @aioresponses()
-    async def test_api_request(self, mock_api):
+    @pytest.mark.asyncio
+    async def test_api_request(self, public_rest_connector, ev_loop, mock_api):
         response = self.public_url_response
         endpoint = "/api/v3/ticker/24hr"
-        url = urljoin(self._public_url, endpoint)
+        base_url = "https://api.binance.com"
+        url = urljoin(base_url, endpoint)
 
         mock_api.get(url, body=json.dumps(response))
-        request = await self._public_connector.api_request(endpoint=endpoint,
-                                                           rest_method=RESTMethod.GET)
+        request = await public_rest_connector.api_request(endpoint=endpoint,
+                                                          rest_method=RESTMethod.GET)
         json_response = await request.json()
-        self.assertEqual(url, request.url)
-        self.assertEqual("LUPIN-USDT", json_response["symbol"])
+        assert url == request.url
+        assert "LUPIN-USDT" == json_response["symbol"]

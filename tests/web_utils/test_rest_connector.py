@@ -31,9 +31,7 @@ def session():
 @pytest.fixture(scope="class")
 def public_rest_connector(session):
     return RESTConnector(
-        base_public_url="https://api.binance.com",
-        session=session,
-        timeout=1.0
+        base_public_url="https://api.binance.com", session=session, timeout=1.0
     )
 
 
@@ -61,7 +59,7 @@ class TestRestConnector:
             "closeTime": 1499869899040,
             "firstId": 28385,  # First tradeId
             "lastId": 28460,  # Last tradeId
-            "count": 76  # Trade count
+            "count": 76,  # Trade count
         }
 
     @pytest.mark.asyncio
@@ -72,8 +70,9 @@ class TestRestConnector:
         url = urljoin(base_url, endpoint)
 
         mock_api.get(url, body=json.dumps(response))
-        request = await public_rest_connector.api_request(endpoint=endpoint,
-                                                          rest_method=RESTMethod.GET)
+        request = await public_rest_connector.api_request(
+            endpoint=endpoint, rest_method=RESTMethod.GET
+        )
         json_response = await request.json()
         assert url == request.url
         assert "LUPIN-USDT" == json_response["symbol"]

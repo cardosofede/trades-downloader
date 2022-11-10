@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Mapping, Any
+from typing import Any, Mapping, Optional
 
 import aiohttp
 
